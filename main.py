@@ -1,10 +1,23 @@
 import os
 import pickle
+from flask import Flask
+from threading import Thread
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from pyrogram.errors import UserNotParticipant
 
-# --- আপনার তথ্যসমূহ ---
+# --- ১. Render-এর জন্য নকল ওয়েবসাইট সার্ভার (বট সচল রাখতে) ---
+web_app = Flask('')
+
+@web_app.route('/')
+def home():
+    return "Bot is Online 24/7!"
+
+def run_server():
+    port = int(os.environ.get("PORT", 8080))
+    web_app.run(host='0.0.0.0', port=port)
+
+# --- ২. আপনার বটের তথ্যসমূহ ---
 API_ID = 32779459
 API_HASH = "f3a12806b4ba99203461f813041c486e"
 BOT_TOKEN = "8535419158:AAGEoEPbFKwE5Gx0V4_f2cxkilzhexlS65A"
@@ -14,7 +27,7 @@ CHANNEL_LINK = "https://t.me/aurpon_mood_hub"
 
 app = Client("AurponProBot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 
-# ডাটাবেস ফাইল লোড করা (লিঙ্ক সেভ রাখার জন্য)
+# ডাটাবেস ফাইল লোড করা
 DB_FILE = "database.pkl"
 if os.path.exists(DB_FILE):
     with open(DB_FILE, "rb") as f:
@@ -32,7 +45,7 @@ async def start(client, message):
     text_parts = message.text.split()
     param = text_parts[1] if len(text_parts) > 1 else None
 
-    # ১. ফোর্স সাবস্ক্রাইব চেক
+    # ফোর্স সাবস্ক্রাইব চেক
     try:
         await client.get_chat_member(CHANNEL_ID, user_id)
     except UserNotParticipant:
@@ -44,7 +57,7 @@ async def start(client, message):
             ])
         )
 
-    # ২. ফাইল পাঠানো
+    # ফাইল পাঠানো
     if param and param in file_db:
         await message.reply_text("⚡️ **ফাইলটি প্রসেস হচ্ছে...**")
         try:
@@ -72,7 +85,7 @@ async def handle_files(client, message):
     file_id = message.document.file_id if message.document else (message.video.file_id if message.video else message.audio.file_id)
     msg_id = str(message.id)
     file_db[msg_id] = file_id
-    save_db() # ডাটাবেসে সেভ করা
+    save_db()
     
     link = f"https://t.me/{client.me.username}?start={msg_id}"
     
@@ -84,5 +97,8 @@ async def handle_files(client, message):
         ])
     )
 
-print("🚀 প্রফেশনাল ফাইল স্টোর বট চালু হয়েছে!")
-app.run()
+# --- ৩. বট ও সার্ভার রান করা ---
+if __name__ == "__main__":
+    Thread(target=run_server).start() # ওয়েবসাইট সার্ভার শুরু
+    print("🚀 প্রফেশনাল ফাইল স্টোর বট চালু হয়েছে!")
+    app.run()
