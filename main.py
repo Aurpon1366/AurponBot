@@ -6,18 +6,18 @@ from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from pyrogram.errors import UserNotParticipant
 
-# --- ১. Render-এর জন্য নকল ওয়েবসাইট সার্ভার (বট সচল রাখতে) ---
-web_app = Flask('')
-
-@web_app.route('/')
+# --- ১. ওয়েব সার্ভার (Koyeb-এর জন্য এটি প্রয়োজন) ---
+web = Flask('')
+@web.route('/')
 def home():
-    return "Bot is Online 24/7!"
+    return "Aurpon File Store is Live!"
 
-def run_server():
+def run():
+    # Koyeb সাধারণত ৮০০০ বা ৮০৮০ পোর্ট ব্যবহার করে
     port = int(os.environ.get("PORT", 8080))
-    web_app.run(host='0.0.0.0', port=port)
+    web.run(host='0.0.0.0', port=port)
 
-# --- ২. আপনার বটের তথ্যসমূহ ---
+# --- ২. আপনার বটের তথ্য ---
 API_ID = 32779459
 API_HASH = "f3a12806b4ba99203461f813041c486e"
 BOT_TOKEN = "8535419158:AAGEoEPbFKwE5Gx0V4_f2cxkilzhexlS65A"
@@ -25,16 +25,51 @@ ADMIN_ID = 6487613131
 CHANNEL_ID = -1002424019668
 CHANNEL_LINK = "https://t.me/aurpon_mood_hub"
 
-app = Client("AurponProBot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
+app = Client("AurponBot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 
-# ডাটাবেস ফাইল লোড করা
+# ডাটাবেস
 DB_FILE = "database.pkl"
 if os.path.exists(DB_FILE):
-    with open(DB_FILE, "rb") as f:
-        file_db = pickle.load(f)
-else:
-    file_db = {}
+    with open(DB_FILE, "rb") as f: file_db = pickle.load(f)
+else: file_db = {}
 
+def save_db():
+    with open(DB_FILE, "wb") as f: pickle.dump(file_db, f)
+
+# --- ৩. বটের কাজ ---
+@app.on_message(filters.command("start") & filters.private)
+async def start(client, message):
+    user_id = message.from_user.id
+    param = message.text.split()[1] if len(message.text.split()) > 1 else None
+
+    try:
+        await client.get_chat_member(CHANNEL_ID, user_id)
+    except UserNotParticipant:
+        return await message.reply_text(
+            "👋 **হ্যালো!** ফাইল পেতে চ্যানেলে জয়েন করুন।",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("📢 Join Channel", url=CHANNEL_LINK)],
+                [InlineKeyboardButton("🔄 Try Again", url=f"https://t.me/{client.me.username}?start={param}" if param else "/start")]
+            ])
+        )
+
+    if param and param in file_db:
+        await client.copy_message(chat_id=message.chat.id, from_chat_id=ADMIN_ID, message_id=int(param))
+    else:
+        await message.reply_text("স্বাগতম! ফাইল পাঠান লিঙ্ক পেতে।")
+
+@app.on_message((filters.document | filters.video | filters.audio) & filters.private)
+async def handle_files(client, message):
+    if message.from_user.id != ADMIN_ID: return
+    msg_id = str(message.id)
+    file_db[msg_id] = message.document.file_id if message.document else (message.video.file_id if message.video else message.audio.file_id)
+    save_db()
+    link = f"https://t.me/{client.me.username}?start={msg_id}"
+    await message.reply_text(f"✅ লিঙ্ক তৈরি হয়েছে:\n`{link}`")
+
+if __name__ == "__main__":
+    Thread(target=run).start()
+    app.run()
 def save_db():
     with open(DB_FILE, "wb") as f:
         pickle.dump(file_db, f)
